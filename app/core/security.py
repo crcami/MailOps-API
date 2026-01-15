@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+from typing import Any
 
 import jwt
+from jwt import PyJWTError
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -44,18 +47,44 @@ def create_reset_token(user_id: int, email: str, password_hash: str) -> str:
         "sub": str(user_id),
         "type": "reset",
         "email": email,
-        "pwd": password_hash,
+        "pwd_fp": _password_fingerprint(password_hash),
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_token(token: str) -> dict:
+def decode_access_token(token: str) -> dict[str, Any]:
+    """Decode and validate an access token."""
+    payload = _decode_token(token)
+    if payload.get("type") != "access":
+        raise ValueError("Invalid token type.")
+    return payload
+
+
+def decode_reset_token(token: str) -> dict[str, Any]:
+    """Decode and validate a reset token."""
+    payload = _decode_token(token)
+    if payload.get("type") != "reset":
+        raise ValueError("Invalid token type.")
+    if "email" not in payload or "pwd_fp" not in payload:
+        raise ValueError("Invalid reset token payload.")
+    return payload
+
+
+def _decode_token(token: str) -> dict[str, Any]:
     """Decode and validate a JWT token."""
-    return jwt.decode(
-        token,
-        settings.secret_key,
-        algorithms=[settings.jwt_algorithm],
-        options={"require": ["exp", "iat", "sub"]},
-    )
+    try:
+        return jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.jwt_algorithm],
+            options={"require": ["exp", "iat", "sub"]},
+        )
+    except PyJWTError as exc:
+        raise ValueError("Invalid token.") from exc
+
+
+def _password_fingerprint(password_hash: str) -> str:
+    """Build a stable fingerprint for password invalidation."""
+    return sha256(password_hash.encode("utf-8")).hexdigest()

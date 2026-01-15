@@ -1,1 +1,22 @@
-.venv
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual env
+.venv/
+
+# Logs
+*.log
+
+# Local DB
+*.db
+*.sqlite3
+
+# ML models
+models/*.joblib
+
+# OS
+.DS_Store
+Thumbs.db
+
+.env

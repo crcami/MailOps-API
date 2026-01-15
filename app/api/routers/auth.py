@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import logging
+from hashlib import sha256
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -18,7 +19,7 @@ from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_reset_token,
-    decode_token,
+    decode_reset_token,
     hash_password,
     verify_password,
 )
@@ -29,16 +30,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/register")
-def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> dict:
-    """Register a new user."""
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    """Register a new user and return a bearer token."""
     existing = (
         db.query(User)
         .filter((User.email == payload.email) | (User.username == payload.username))
         .first()
     )
     if existing:
-        raise HTTPException(status_code=409, detail="Usuário já existe.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuário já existe.")
 
     user = User(
         username=payload.username,
@@ -49,7 +50,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> dict:
     db.commit()
     db.refresh(user)
 
-    return {"id": user.id, "username": user.username, "email": user.email}
+    token = create_access_token(user_id=user.id)
+    return TokenResponse(access_token=token)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -57,13 +59,13 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
     """Authenticate user and return an access token."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Username ou senha inválidos.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário ou senha inválidos.")
 
     token = create_access_token(user_id=user.id)
     return TokenResponse(access_token=token)
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict:
     """Send a password reset link if user exists."""
     user = db.query(User).filter(User.email == payload.email).first()
@@ -81,31 +83,31 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         reset_url=reset_url,
     )
 
-    return {"message": "Se o e-mail existir, um link para redefinição de senha será enviado.."}
+    return {"message": "Se o e-mail existir, um link para redefinição de senha será enviado."}
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
     """Reset user password using a valid token."""
     try:
-        data = decode_token(payload.token)
+        data = decode_reset_token(payload.token)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Token inválido ou expirado.") from exc
-
-    if data.get("type") != "reset":
-        raise HTTPException(status_code=400, detail="Tipo de token inválido.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido ou expirado.",
+        ) from exc
 
     user_id = int(data["sub"])
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=400, detail="Token de usuário inválido.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token de usuário inválido.")
 
     if data.get("email") != user.email:
-        raise HTTPException(status_code=400, detail="Email do token inválido.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email do token inválido.")
 
-    # Token becomes invalid after password change due to "pwd" claim mismatch.
-    if data.get("pwd") != user.password_hash:
-        raise HTTPException(status_code=400, detail="O token não é mais válido.")
+    expected_fp = sha256(user.password_hash.encode("utf-8")).hexdigest()
+    if data.get("pwd_fp") != expected_fp:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="O token não é mais válido.")
 
     user.password_hash = hash_password(payload.new_password)
     db.add(user)

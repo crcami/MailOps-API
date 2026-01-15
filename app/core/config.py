@@ -1,7 +1,8 @@
 """Application settings."""
 from __future__ import annotations
 
-from typing import Literal
+import json
+from typing import Literal, Any
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,13 +37,26 @@ class Settings(BaseSettings):
 
     ai_provider: Literal["mock", "local_ml"] = "local_ml"
 
+    public_api_key: str = ""
+
     @field_validator("api_cors_origins", mode="before")
     @classmethod
-    def _parse_cors_origins(cls, value):
-        """Parse comma-separated cors origins from env."""
+    def _parse_cors_origins(cls, value: Any) -> Any:
+        """Parse cors origins from env."""
         if isinstance(value, str):
-            items = [v.strip() for v in value.split(",")]
+            raw = value.strip()
+
+            if raw.startswith("["):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        return [str(v).strip() for v in parsed if str(v).strip()]
+                except json.JSONDecodeError:
+                    pass
+
+            items = [v.strip() for v in raw.split(",")]
             return [v for v in items if v]
+
         return value
 
 
