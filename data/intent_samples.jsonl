@@ -1,0 +1,44 @@
+{"text":"Parabéns pelo excelente trabalho da equipe!","label":"PRAISE"}
+{"text":"Só queria deixar um elogio, atendimento ótimo.","label":"PRAISE"}
+{"text":"Obrigado pela ajuda, vocês foram excelentes.","label":"PRAISE"}
+{"text":"Agradeço o suporte, resolveu meu problema.","label":"PRAISE"}
+{"text":"Muito bom o serviço, agradeço demais.","label":"PRAISE"}
+{"text":"Excelente atendimento, parabéns.","label":"PRAISE"}
+{"text":"Vocês são incríveis, obrigado!","label":"PRAISE"}
+{"text":"Fiquei muito satisfeito, obrigado.","label":"PRAISE"}
+
+{"text":"Segue meu currículo para a vaga em aberto.","label":"RESUME"}
+{"text":"Enviei meu CV, tenho interesse no processo seletivo.","label":"RESUME"}
+{"text":"Gostaria de participar da seleção, onde envio meu currículo?","label":"RESUME"}
+{"text":"Tenho interesse em trabalhar com vocês, anexo meu currículo.","label":"RESUME"}
+{"text":"Estou me candidatando à vaga, segue meu currículo.","label":"RESUME"}
+{"text":"Quero participar do recrutamento, podem orientar?","label":"RESUME"}
+{"text":"Envio meu currículo para avaliação.","label":"RESUME"}
+{"text":"Gostaria de uma oportunidade, segue meu CV.","label":"RESUME"}
+
+{"text":"Estou insatisfeito com o serviço, quero reclamar.","label":"COMPLAINT"}
+{"text":"Recebi cobrança indevida, isso é um absurdo.","label":"COMPLAINT"}
+{"text":"Quero reembolso, a experiência foi péssima.","label":"COMPLAINT"}
+{"text":"Estou decepcionado, quero cancelar agora.","label":"COMPLAINT"}
+{"text":"O atendimento foi ruim, preciso registrar reclamação.","label":"COMPLAINT"}
+{"text":"Isso não resolveu, estou muito insatisfeito.","label":"COMPLAINT"}
+{"text":"Quero cancelar e solicitar estorno.","label":"COMPLAINT"}
+{"text":"Estou frustrado com o serviço e preciso de uma solução.","label":"COMPLAINT"}
+
+{"text":"Não consigo acessar o sistema, aparece erro ao logar.","label":"SUPPORT"}
+{"text":"Preciso de suporte, o sistema falha ao salvar.","label":"SUPPORT"}
+{"text":"Qual o status do meu ticket?","label":"SUPPORT"}
+{"text":"Tenho uma dúvida sobre a funcionalidade X.","label":"SUPPORT"}
+{"text":"O relatório não carrega, podem verificar?","label":"SUPPORT"}
+{"text":"Estou com erro na integração, preciso de ajuda.","label":"SUPPORT"}
+{"text":"Como faço para redefinir minha senha?","label":"SUPPORT"}
+{"text":"Existe alguma instabilidade hoje?","label":"SUPPORT"}
+
+{"text":"Gostaria de saber o horário de atendimento.","label":"OTHER"}
+{"text":"Vocês atendem em feriados?","label":"OTHER"}
+{"text":"Qual o endereço da empresa?","label":"OTHER"}
+{"text":"Poderiam me informar como funciona o plano?","label":"OTHER"}
+{"text":"Qual o preço do serviço?","label":"OTHER"}
+{"text":"Quais são os benefícios do produto?","label":"OTHER"}
+{"text":"Como faço para conhecer mais sobre a empresa?","label":"OTHER"}
+{"text":"Vocês possuem uma página com perguntas frequentes?","label":"OTHER"}
