@@ -4,9 +4,10 @@ from __future__ import annotations
 from app.core.config import settings
 
 
-def build_reply(intent: str, category: str) -> tuple[str, str, str | None]:
+def build_reply(intent: str, category: str, secondary_intents: tuple[str, ...] = ()) -> tuple[str, str, str | None]:
     """Build a subject and reply for a given intent."""
     company = settings.company_name
+    secondary = set(secondary_intents or ())
 
     if intent == "PRAISE":
         subject = "Re: Obrigado pela sua mensagem"
@@ -31,8 +32,18 @@ def build_reply(intent: str, category: str) -> tuple[str, str, str | None]:
 
     if intent == "COMPLAINT":
         subject = "Re: Sentimos muito pelo ocorrido"
+
+        prefix = ""
+        if "PRAISE" in secondary:
+            prefix = (
+                "Olá,\n\n"
+                "Obrigado pelo seu feedback e por compartilhar sua experiência.\n"
+            )
+        else:
+            prefix = "Olá,\n\n"
+
         body = (
-            "Olá,\n\n"
+            f"{prefix}\n"
             "Sentimos muito pela sua experiência.\n"
             "Para que possamos registrar e tratar sua solicitação com prioridade, "
             "por favor envie os detalhes (ex.: prints, data/hora, passos) para:\n\n"

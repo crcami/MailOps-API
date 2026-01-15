@@ -15,7 +15,7 @@ async def classify_and_reply(raw_text: str, preprocessed_text: str) -> dict:
     text_for_productivity = (preprocessed_text or "").strip() or raw_text
     classification = await ai.classify(text_for_productivity)
 
-    intent_label, intent_conf, intent_source = _safe_detect_intent(raw_text)
+    intent_label, intent_conf, intent_source, secondary, reason = _safe_detect_intent(raw_text)
 
     normalized_category = normalize_category(
         category=classification.category,
@@ -25,6 +25,7 @@ async def classify_and_reply(raw_text: str, preprocessed_text: str) -> dict:
     subject, reply, contact = build_reply(
         intent=intent_label,
         category=normalized_category,
+        secondary_intents=secondary,
     )
 
     return {
@@ -33,6 +34,8 @@ async def classify_and_reply(raw_text: str, preprocessed_text: str) -> dict:
         "intent": intent_label,
         "intent_confidence": float(intent_conf),
         "intent_source": intent_source,
+        "secondary_intents": list(secondary),
+        "intent_reason": reason or "",
         "suggested_subject": subject,
         "suggested_reply": reply,
         "short_justification": classification.justification,
@@ -41,31 +44,30 @@ async def classify_and_reply(raw_text: str, preprocessed_text: str) -> dict:
     }
 
 
-def _safe_detect_intent(text: str) -> tuple[str, float, str]:
+def _safe_detect_intent(text: str) -> tuple[str, float, str, tuple[str, ...], str]:
     """Detect intent with compatibility across implementations."""
     try:
         pred = _call_detect_intent(text)
     except Exception:
-        return "OTHER", 0.0, "fallback"
-
-    # Common shapes:
-    # - IntentPrediction(label, confidence, source)
-    # - IntentResult(intent, confidence, source)
-    # - plain string
+        return "OTHER", 0.0, "fallback", (), ""
 
     if hasattr(pred, "label"):
         label = str(getattr(pred, "label", "OTHER")).strip().upper()
         conf = float(getattr(pred, "confidence", 0.0))
         source = str(getattr(pred, "source", "rules"))
-        return _normalize_intent(label), _clamp(conf), source
+        secondary = getattr(pred, "secondary", ()) or ()
+        reason = str(getattr(pred, "reason", "") or "")
+        return _normalize_intent(label), _clamp(conf), source, _normalize_secondary(secondary, label), reason
 
     if hasattr(pred, "intent"):
         label = str(getattr(pred, "intent", "OTHER")).strip().upper()
         conf = float(getattr(pred, "confidence", 0.0))
         source = str(getattr(pred, "source", "rules"))
-        return _normalize_intent(label), _clamp(conf), source
+        secondary = getattr(pred, "secondary", ()) or ()
+        reason = str(getattr(pred, "reason", "") or "")
+        return _normalize_intent(label), _clamp(conf), source, _normalize_secondary(secondary, label), reason
 
-    return _normalize_intent(str(pred or "OTHER")), 0.50, "rules"
+    return _normalize_intent(str(pred or "OTHER")), 0.50, "rules", (), ""
 
 
 def _call_detect_intent(text: str):
@@ -80,6 +82,26 @@ def _normalize_intent(value: str) -> str:
     """Normalize intent to allowed labels."""
     upper = (value or "OTHER").strip().upper()
     return upper if upper in _ALLOWED_INTENTS else "OTHER"
+
+
+def _normalize_secondary(value: object, primary: str) -> tuple[str, ...]:
+    """Normalize secondary intents to allowed labels."""
+    if not value:
+        return ()
+    if isinstance(value, str):
+        items = [value]
+    else:
+        try:
+            items = list(value)  # type: ignore[arg-type]
+        except Exception:
+            return ()
+    cleaned = []
+    primary_u = (primary or "OTHER").strip().upper()
+    for item in items:
+        upper = str(item).strip().upper()
+        if upper in _ALLOWED_INTENTS and upper != primary_u:
+            cleaned.append(upper)
+    return tuple(sorted(set(cleaned)))
 
 
 def _clamp(value: float) -> float:

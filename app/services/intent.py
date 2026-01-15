@@ -9,9 +9,10 @@ from typing import Any
 
 import joblib
 
-
 _ALLOWED_LABELS = {"PRAISE", "RESUME", "COMPLAINT", "SUPPORT", "OTHER"}
 _DEFAULT_MODEL_PATH = Path("models") / "intent_classifier.joblib"
+
+_PRIORITY = ["COMPLAINT", "SUPPORT", "RESUME", "PRAISE", "OTHER"]
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,8 @@ class IntentPrediction:
     label: str
     confidence: float
     source: str
+    secondary: tuple[str, ...] = ()
+    reason: str = ""
 
 
 def detect_intent(text: str, min_confidence: float = 0.60) -> IntentPrediction:
@@ -30,34 +33,43 @@ def detect_intent(text: str, min_confidence: float = 0.60) -> IntentPrediction:
     if ml_pred is None:
         return rules_pred
 
-    # If ML is not confident, prefer rules (avoids harmful misroutes like RESUME->RH).
     if ml_pred.confidence < min_confidence:
         return rules_pred
 
-    # Guard-rail: RESUME should not happen unless resume-ish keywords appear.
     if ml_pred.label == "RESUME" and not _looks_like_resume(text):
         return rules_pred
 
-    return ml_pred
+    merged_secondary = _merge_secondary(primary=ml_pred.label, rules=rules_pred)
+    reason = _merge_reason(primary_source="local_ml", ml=ml_pred, rules=rules_pred)
+
+    return IntentPrediction(
+        label=ml_pred.label,
+        confidence=ml_pred.confidence,
+        source="local_ml",
+        secondary=merged_secondary,
+        reason=reason,
+    )
 
 
 def detect_intent_rules(text: str) -> IntentPrediction:
-    """Detect intent using regex rules."""
+    """Detect intent using regex rules with multi-label support."""
     value = _normalize(text)
+    matches = _collect_rule_matches(value)
 
-    if _matches(value, _PRAISE_PATTERNS):
-        return IntentPrediction(label="PRAISE", confidence=0.95, source="rules")
+    if not matches:
+        return IntentPrediction(label="OTHER", confidence=0.50, source="rules")
 
-    if _matches(value, _RESUME_PATTERNS):
-        return IntentPrediction(label="RESUME", confidence=0.95, source="rules")
+    primary = _pick_primary(matches)
+    secondary = tuple(sorted(i for i in matches if i != primary))
+    reason = _build_rules_reason(matches=matches, primary=primary)
 
-    if _matches(value, _COMPLAINT_PATTERNS):
-        return IntentPrediction(label="COMPLAINT", confidence=0.95, source="rules")
-
-    if _matches(value, _SUPPORT_PATTERNS):
-        return IntentPrediction(label="SUPPORT", confidence=0.95, source="rules")
-
-    return IntentPrediction(label="OTHER", confidence=0.50, source="rules")
+    return IntentPrediction(
+        label=primary,
+        confidence=0.95,
+        source="rules",
+        secondary=secondary,
+        reason=reason,
+    )
 
 
 def normalize_category(category: str, intent: str) -> str:
@@ -102,7 +114,6 @@ def _unwrap_model(model: Any) -> tuple[Any, list[str] | None]:
         if isinstance(labels, list) and labels:
             return pipeline, [str(x) for x in labels]
         return pipeline, None
-
     return model, None
 
 
@@ -164,7 +175,56 @@ def _matches(value: str, patterns: list[str]) -> bool:
 
 def _clamp(value: float) -> float:
     """Clamp numeric value to 0..1."""
-    return max(0.0, min(1.0, value))
+    return max(0.0, min(1.0, float(value)))
+
+
+def _collect_rule_matches(value: str) -> set[str]:
+    """Collect all rule-based intent matches."""
+    matches: set[str] = set()
+
+    if _matches(value, _PRAISE_PATTERNS):
+        matches.add("PRAISE")
+    if _matches(value, _RESUME_PATTERNS):
+        matches.add("RESUME")
+    if _matches(value, _COMPLAINT_PATTERNS):
+        matches.add("COMPLAINT")
+    if _matches(value, _SUPPORT_PATTERNS):
+        matches.add("SUPPORT")
+
+    matches = {m for m in matches if m in _ALLOWED_LABELS}
+    return matches
+
+
+def _pick_primary(matches: set[str]) -> str:
+    """Pick a primary intent using priority order."""
+    for label in _PRIORITY:
+        if label in matches:
+            return label
+    return "OTHER"
+
+
+def _build_rules_reason(matches: set[str], primary: str) -> str:
+    """Build a short explanation for rule matches."""
+    ordered = [m for m in _PRIORITY if m in matches]
+    secondary = [m for m in ordered if m != primary]
+    if not secondary:
+        return f"rules: matched {primary}"
+    return f"rules: matched {primary}; secondary={','.join(secondary)}"
+
+
+def _merge_secondary(primary: str, rules: IntentPrediction) -> tuple[str, ...]:
+    """Merge rules-based intents as secondary labels."""
+    primary_norm = (primary or "OTHER").strip().upper()
+    all_rules = {rules.label, *rules.secondary}
+    cleaned = sorted(i for i in all_rules if i in _ALLOWED_LABELS and i != primary_norm)
+    return tuple(cleaned)
+
+
+def _merge_reason(primary_source: str, ml: IntentPrediction, rules: IntentPrediction) -> str:
+    """Merge reason strings from ML and rules."""
+    rules_part = rules.reason or f"rules: matched {rules.label}"
+    ml_part = f"local_ml: {ml.label} conf={ml.confidence:.2f}"
+    return f"{ml_part}; {rules_part}; chosen={primary_source}"
 
 
 _PRAISE_PATTERNS = [
@@ -178,6 +238,9 @@ _PRAISE_PATTERNS = [
     r"\bmaravilhos[oa]\b",
     r"\bimpec[aá]vel\b",
     r"\bsensacional\b",
+    r"\badorei\b",
+    r"\bamei\b",
+    r"\bgostei\b",
     r"\bagrade[cç]o\b",
     r"\bagradecimento\b",
     r"\bobrigad[oa]\b",
@@ -187,7 +250,6 @@ _PRAISE_PATTERNS = [
     r"\bresolveram\b",
     r"\brecomendo\b",
 ]
-
 
 _RESUME_PATTERNS = [
     r"\bcurr[ií]culo\b",
@@ -217,7 +279,6 @@ _RESUME_PATTERNS = [
     r"\banexo\b.*\bcv\b",
     r"\banexo\b.*\bcurr[ií]culo\b",
 ]
-
 
 _COMPLAINT_PATTERNS = [
     r"\breclama[cç][aã]o\b",
@@ -249,7 +310,6 @@ _COMPLAINT_PATTERNS = [
     r"\bquero meu dinheiro de volta\b",
 ]
 
-
 _SUPPORT_PATTERNS = [
     r"\bsuporte\b",
     r"\bajuda\b",
@@ -276,4 +336,3 @@ _SUPPORT_PATTERNS = [
     r"\btoken\b",
     r"\bauth\b",
 ]
-
