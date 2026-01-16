@@ -57,7 +57,7 @@ A API utiliza **dupla camada de autenticação**:
 - **Respostas Inteligentes**: Gera sugestões de resposta baseadas no contexto
 - **Autenticação Completa**: Sistema de login, registro e recuperação de senha
 
-## 🏗️ Arquitetura
+## Arquitetura
 
 Para detalhes sobre a estrutura do projeto, tecnologias utilizadas e padrões de design, consulte [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
