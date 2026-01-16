@@ -6,8 +6,9 @@ from hashlib import sha256
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from app.api.schemas.auth import UserMeResponse
+from app.api.deps import get_db, get_current_user
 
-from app.api.deps import get_db
 from app.api.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -114,3 +115,12 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     db.commit()
 
     return {"message": "Senha atualizada com sucesso."}
+
+@router.get("/me", response_model=UserMeResponse, status_code=status.HTTP_200_OK)
+def me(current_user: User = Depends(get_current_user)) -> UserMeResponse:
+    """Return the current user."""
+    return UserMeResponse(
+        id=current_user.id,
+        username=current_user.username,
+        email=current_user.email,
+    )

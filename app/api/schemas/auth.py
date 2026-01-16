@@ -48,3 +48,10 @@ class ResetPasswordRequest(BaseModel):
         """Validate password policy."""
         validate_password_strength(value)
         return value
+
+
+class UserMeResponse(BaseModel):
+    """Current user response payload."""
+    id: int
+    username: str
+    email: EmailStr
