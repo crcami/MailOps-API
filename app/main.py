@@ -26,16 +26,16 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version="0.1.0",
         description=(
-            "## Authentication\n"
-            "This API uses two layers of authentication:\n\n"
-            "1) **Client API Key** (`X-API-Key`) — required on all routes.\n"
-            "2) **User Access Token (JWT)** (`Authorization: Bearer <token>`) — required on protected routes "
+            "## Autenticação\n"
+            "Esta API usa duas camadas de autenticação:\n\n"
+            "1) **Client API Key** (`X-API-Key`) — obrigatória em todas as rotas.\n"
+            "2) **User Access Token (JWT)** (`Authorization: Bearer <token>`) — obrigatória em rotas protegidas "
             "(e.g. `/api/analyze`).\n\n"
-            "### Usage flow\n"
-            "1. Click **Authorize** and set the `X-API-Key`.\n"
-            "2. Register or login via `/api/auth/login`.\n"
-            "3. Click **Authorize** again and paste the JWT into the Bearer field.\n"
-            "4. Test protected routes.\n"
+            "### Fluxo de uso\n"
+            "1. Clique em **Authorize** e defina a `X-API-Key`.\n"
+            "2. Registre-se ou faça login via `/api/auth/login`.\n"
+            "3. Clique em **Authorize** novamente e cole o JWT no campo Bearer.\n"
+            "4. Teste as rotas protegidas.\n"
         ),
     )
 
@@ -55,6 +55,11 @@ def create_app() -> FastAPI:
             logger.info("AI client warmup completed.")
         except Exception:
             logger.exception("AI client warmup failed.")
+
+    @app.get("/", include_in_schema=False)
+    def root() -> dict:
+        """Return a simple root response."""
+        return {"status": "ok", "docs": "/docs", "health": "/api/health"}
 
     @app.get("/api/health")
     def health() -> dict:

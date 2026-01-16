@@ -14,6 +14,8 @@ __pycache__/
 
 # ML models
 models/*.joblib
+!models/intent_classifier.joblib
+!models/productivity_classifier.joblib
 
 # OS
 .DS_Store
